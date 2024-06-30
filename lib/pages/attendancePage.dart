@@ -40,15 +40,41 @@ class _AttendancePageState extends State<AttendancePage> {
                     ? Image.file(selectedImage!)
                     : Text('Ambil gambar!'),
                 SizedBox(height: 20),
+                // GestureDetector(
+                //   onTap: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (context) =>
+                //             CameraPage(cameras: widget.cameras),
+                //       ),
+                //     );
+                //   },
+                //   child: Container(
+                //     padding: EdgeInsets.symmetric(
+                //       vertical: 10,
+                //       horizontal: 30,
+                //     ),
+                //     decoration: BoxDecoration(
+                //       color: Colors.purple[900],
+                //     ),
+                //     child: Text(
+                //       'Kamera',
+                //       style: TextStyle(
+                //         color: Colors.white,
+                //       ),
+                //     ),
+                //   ),
+                // ),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            CameraPage(cameras: widget.cameras),
-                      ),
-                    );
+                  onTap: () async {
+                    camera();
+                    getLokasi().then((position) {
+                      var longtitude = position.longitude;
+                      var langtitude = position.latitude;
+                      print('${position}');
+                      postLocation(longtitude, langtitude);
+                    });
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -59,7 +85,7 @@ class _AttendancePageState extends State<AttendancePage> {
                       color: Colors.purple[900],
                     ),
                     child: Text(
-                      'Kamera',
+                      'Cameras',
                       style: TextStyle(
                         color: Colors.white,
                       ),
@@ -75,24 +101,50 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future camera() async {
-    // final returnedImage = await ImagePicker();
-    // final XFile? imagePicked = await picke
-
-    // if (returnedImage == null) return;
-    // setState(() {
-    //   selectedImage = File(returnedImage.path);
-    // });
-
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
     selectedImage = File(photo!.path);
     setState(() {});
 
-    getLokasi().then((position) {
-      var logtitude = position.longitude;
-      var langtitude = position.altitude;
-      postLocation(logtitude, langtitude);
-    });
+    await sendFace(context);
+  }
+
+  Future<void> sendFace(BuildContext context) async {
+    final url = 'https://flask-app-5zxttw4pva-et.a.run.app/predict';
+    final uri = Uri.parse(url);
+
+    final request = http.MultipartRequest('POST', uri)
+      ..files
+          .add(await http.MultipartFile.fromPath('image', selectedImage!.path));
+
+    // final streamResponse = await request.send();
+
+    // final response = await http.Response.fromStream(streamResponse);
+
+    // if (response.statusCode == 200) {
+    //   showSuccessMessage(context, msg: 'Berhasil Absen!');
+    //   print('Success Absence!');
+    // } else {
+    //   showErrorMessage(context, msg: 'Gagal Absen!');
+    //   print('Failed Absence!');
+    // }
+
+    try {
+      final streamResponse = await request.send();
+      final response = await http.Response.fromStream(streamResponse);
+
+      if (response.statusCode == 200) {
+        showSuccessMessage(context, msg: 'Berhasil Absen!');
+        print('Success Absence!');
+      } else {
+        showErrorMessage(context,
+            msg: 'Gagal Absen! Status: ${response.statusCode}');
+        print('Failed Absence! Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      showErrorMessage(context, msg: 'Gagal mengirim data: $e');
+      print('Error sending data: $e');
+    }
   }
 
   Future<Position> getLokasi() async {
@@ -137,7 +189,7 @@ class _AttendancePageState extends State<AttendancePage> {
     if (response.statusCode == 200) {
       showSuccessMessage(context, msg: 'Presensi berhasil!');
     } else {
-      showErrorMessage(context, msg: 'Presensi gagal!');
+      showErrorMessage(context, msg: 'Anda diluar jangkauan!');
       print('Status code ${response.statusCode}');
       print('Status ${response.body}');
     }
